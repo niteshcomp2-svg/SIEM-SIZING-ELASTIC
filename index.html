@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Elastic SIEM Sizing Calculator — Solution Architect Edition</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --ink:       #0d1117;
+  --paper:     #f5f0e8;
+  --cream:     #ede8de;
+  --rule:      #c8bfa8;
+  --gold:      #b8860b;
+  --elastic:   #00bfb3;
+  --elastic-d: #007a75;
+  --red:       #c0392b;
+  --green:     #1a6b44;
+  --muted:     #6b6357;
+  --serif:     'Playfair Display', Georgia, serif;
+  --mono:      'DM Mono', monospace;
+  --sans:      'DM Sans', sans-serif;
+  --shadow:    0 2px 24px rgba(13,17,23,0.10);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  min-height: 100vh;
+  font-size: 15px;
+  line-height: 1.6;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none; z-index: 0; opacity: 0.5;
+}
+.masthead {
+  border-bottom: 2px solid var(--ink);
+  padding: 0 40px;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 56px;
+  position: sticky; top: 0;
+  background: var(--paper);
+  z-index: 100;
+}
+.masthead-left { display: flex; align-items: center; gap: 14px; }
+.elastic-pill {
+  background: var(--ink); color: var(--elastic);
+  font-family: var(--mono); font-size: 11px; font-weight: 500;
+  letter-spacing: 1.5px; padding: 3px 12px; border-radius: 2px; text-transform: uppercase;
+}
+.masthead-title { font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: 1px; }
+.masthead-right { font-family: var(--mono); font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 20px; }
+.masthead-right a { color: var(--muted); text-decoration: none; transition: color 0.2s; }
+.masthead-right a:hover { color: var(--ink); }
+.hero { padding: 72px 40px 56px; max-width: 1100px; margin: 0 auto; position: relative; z-index: 1; }
+.hero-eyebrow {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 16px; display: flex; align-items: center; gap: 12px;
+}
+.hero-eyebrow::before { content: ''; display: block; width: 32px; height: 1px; background: var(--gold); }
+.hero h1 { font-family: var(--serif); font-size: clamp(38px, 6vw, 68px); font-weight: 900; line-height: 1.0; letter-spacing: -1px; margin-bottom: 20px; }
+.hero h1 em { font-style: italic; color: var(--elastic-d); }
+.hero-sub { max-width: 560px; color: var(--muted); font-size: 15px; line-height: 1.7; margin-bottom: 32px; }
+.formula-ref { font-family: var(--mono); font-size: 11px; color: var(--muted); border: 1px solid var(--rule); padding: 10px 16px; border-radius: 2px; display: inline-block; background: var(--cream); }
+.formula-ref a { color: var(--elastic-d); text-decoration: none; }
+.formula-ref a:hover { text-decoration: underline; }
+.layout { max-width: 1100px; margin: 0 auto; padding: 0 40px 80px; display: grid; grid-template-columns: 400px 1fr; gap: 40px; position: relative; z-index: 1; }
+@media (max-width: 860px) { .layout { grid-template-columns: 1fr; } .masthead { padding: 0 20px; } .hero { padding: 48px 20px 40px; } .layout { padding: 0 20px 60px; } }
+.panel { background: white; border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; box-shadow: var(--shadow); }
+.panel-header { background: var(--ink); color: white; padding: 14px 24px; display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; }
+.panel-header .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--elastic); }
+.panel-body { padding: 28px 24px; }
+.section-label { font-family: var(--mono); font-size: 10px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--rule); padding-bottom: 8px; margin-bottom: 18px; margin-top: 28px; }
+.section-label:first-child { margin-top: 0; }
+.field { margin-bottom: 16px; }
+.field label { display: block; font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
+.field .hint { font-size: 11px; color: var(--muted); margin-top: 4px; font-style: italic; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+input[type=number], select { width: 100%; background: var(--cream); border: 1px solid var(--rule); border-radius: 2px; font-family: var(--mono); font-size: 14px; color: var(--ink); padding: 10px 14px; outline: none; transition: border-color 0.2s, box-shadow 0.2s; appearance: none; }
+input[type=number]:focus, select:focus { border-color: var(--elastic-d); box-shadow: 0 0 0 3px rgba(0,191,179,0.12); }
+.source-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.source-chip { border: 1px solid var(--rule); border-radius: 2px; padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 12px; font-family: var(--mono); color: var(--muted); background: var(--cream); transition: all 0.15s; user-select: none; }
+.source-chip input { display: none; }
+.source-chip:hover { border-color: var(--elastic-d); color: var(--ink); }
+.source-chip.active { background: var(--ink); border-color: var(--ink); color: var(--elastic); }
+.source-chip .icon { font-size: 14px; }
+.slider-wrap { display: flex; align-items: center; gap: 12px; }
+input[type=range] { flex: 1; appearance: none; height: 3px; background: var(--rule); border-radius: 2px; cursor: pointer; outline: none; }
+input[type=range]::-webkit-slider-thumb { appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--ink); cursor: pointer; transition: transform 0.15s; }
+input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+.slider-val { font-family: var(--mono); font-size: 13px; color: var(--ink); font-weight: 500; min-width: 64px; text-align: right; }
+.btn-calc { width: 100%; padding: 15px; background: var(--ink); color: var(--elastic); border: none; border-radius: 2px; font-family: var(--mono); font-size: 13px; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; margin-top: 24px; transition: background 0.2s, transform 0.1s; position: relative; overflow: hidden; }
+.btn-calc:hover { background: #1a2332; }
+.btn-calc:active { transform: scale(0.99); }
+#results { display: none; }
+.summary-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; margin-bottom: 24px; box-shadow: var(--shadow); }
+.summary-cell { background: white; padding: 20px 18px; text-align: center; }
+.summary-cell .s-label { font-family: var(--mono); font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.summary-cell .s-value { font-family: var(--serif); font-size: 26px; font-weight: 700; line-height: 1; color: var(--ink); }
+.summary-cell .s-unit { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 3px; }
+.summary-cell.accent .s-value { color: var(--elastic-d); }
+.summary-cell.warn .s-value { color: var(--gold); }
+.summary-cell.ok .s-value { color: var(--green); }
+.tier-strip { border: 1px solid var(--rule); border-radius: 4px; padding: 16px 22px; margin-bottom: 24px; display: flex; align-items: center; gap: 16px; background: white; box-shadow: var(--shadow); }
+.tier-strip.small  { border-left: 4px solid var(--green); }
+.tier-strip.medium { border-left: 4px solid var(--gold); }
+.tier-strip.large  { border-left: 4px solid var(--red); }
+.tier-badge { font-family: var(--mono); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; padding: 3px 10px; border-radius: 2px; margin-left: auto; }
+.tier-strip.small  .tier-badge { background: #e8f5ee; color: var(--green); }
+.tier-strip.medium .tier-badge { background: #fdf5e0; color: var(--gold); }
+.tier-strip.large  .tier-badge { background: #fdecea; color: var(--red); }
+.tier-desc { font-size: 13px; color: var(--muted); }
+.tier-name { font-weight: 600; color: var(--ink); font-size: 15px; margin-bottom: 2px; }
+.block-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+@media (max-width: 680px) { .block-row { grid-template-columns: 1fr; } }
+.block-card { background: white; border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; box-shadow: var(--shadow); }
+.block-card-header { background: var(--cream); border-bottom: 1px solid var(--rule); padding: 10px 18px; font-family: var(--mono); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.block-card-header .accent { color: var(--ink); }
+.block-card-body { padding: 18px; }
+.data-row { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px dashed var(--rule); padding: 8px 0; font-size: 13px; }
+.data-row:last-child { border-bottom: none; }
+.data-row .key { color: var(--muted); font-family: var(--mono); font-size: 11px; }
+.data-row .val { font-family: var(--mono); font-weight: 500; color: var(--ink); font-size: 13px; }
+.data-row .val.hi { color: var(--elastic-d); }
+.data-row .val.warn { color: var(--gold); }
+.node-table-wrap { background: white; border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; margin-bottom: 16px; box-shadow: var(--shadow); }
+.node-table-header { background: var(--ink); color: white; padding: 12px 20px; font-family: var(--mono); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; display: flex; align-items: center; gap: 10px; }
+.node-table-header .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--elastic); }
+table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
+thead tr { background: var(--cream); border-bottom: 1px solid var(--rule); }
+th { text-align: left; padding: 10px 20px; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+td { padding: 11px 20px; border-bottom: 1px solid var(--cream); color: var(--ink); }
+tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: #faf9f6; }
+.tfoot-row td { border-top: 2px solid var(--ink); font-weight: 500; background: var(--cream) !important; border-bottom: none; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 2px; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; }
+.badge-hot    { background: #fdecea; color: var(--red); }
+.badge-warm   { background: #fdf5e0; color: var(--gold); }
+.badge-cold   { background: #e8f3fd; color: #1a5276; }
+.badge-coord  { background: #e8f5ee; color: var(--green); }
+.badge-master { background: #f4ecff; color: #6c3483; }
+.badge-kibana { background: var(--cream); color: var(--muted); border: 1px solid var(--rule); }
+.formula-box { background: var(--ink); color: #c9d1d9; border-radius: 4px; padding: 20px 24px; margin-bottom: 16px; font-family: var(--mono); font-size: 12px; line-height: 1.9; }
+.formula-box .f-title { color: var(--elastic); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #30363d; }
+.formula-box .f-line { color: #c9d1d9; }
+.formula-box .f-line span { color: var(--elastic); }
+.notes-card { background: var(--cream); border: 1px solid var(--rule); border-radius: 4px; padding: 20px 24px; margin-bottom: 16px; }
+.notes-card h3 { font-family: var(--mono); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--rule); }
+.note-item { display: flex; gap: 10px; font-size: 12.5px; color: var(--muted); margin-bottom: 10px; line-height: 1.6; }
+.note-item:last-child { margin-bottom: 0; }
+.note-item .n-icon { color: var(--elastic-d); flex-shrink: 0; margin-top: 1px; }
+.note-item strong { color: var(--ink); }
+footer { border-top: 1px solid var(--rule); padding: 24px 40px; display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-size: 11px; color: var(--muted); position: relative; z-index: 1; }
+footer a { color: var(--elastic-d); text-decoration: none; }
+@keyframes fadeSlide { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+.animate { animation: fadeSlide 0.4s ease both; }
+</style>
+</head>
+<body>
+
+<nav class="masthead">
+  <div class="masthead-left">
+    <span class="elastic-pill">Elastic</span>
+    <span class="masthead-title">SIEM Sizing Calculator &mdash; Solution Architect Edition</span>
+  </div>
+  <div class="masthead-right">
+    <a href="https://www.elastic.co/blog/benchmarking-and-sizing-your-elasticsearch-cluster-for-logs-and-metrics" target="_blank">Elastic Blog ↗</a>
+    <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/size-your-shards.html" target="_blank">Shard Docs ↗</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="hero-eyebrow">Solution Architecture &middot; Pre-Sales Estimation</div>
+  <h1>Elastic SIEM<br/><em>Sizing Calculator</em></h1>
+  <p class="hero-sub">Estimate EPS, bandwidth, storage, shard topology, and node counts for your Elastic Security deployment. Every formula is sourced directly from official Elastic engineering documentation.</p>
+  <div class="formula-ref">
+    📐 Based on
+    <a href="https://www.elastic.co/blog/benchmarking-and-sizing-your-elasticsearch-cluster-for-logs-and-metrics" target="_blank">Elastic Benchmarking &amp; Sizing Guide</a>
+    &nbsp;&middot;&nbsp;
+    <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/size-your-shards.html" target="_blank">Shard Sizing Reference</a>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- INPUT PANEL -->
+  <div>
+    <div class="panel">
+      <div class="panel-header"><span class="dot"></span> Input Parameters</div>
+      <div class="panel-body">
+
+        <div class="section-label">01 &mdash; Log Sources</div>
+        <div class="field">
+          <label>Select active log source types</label>
+          <div class="source-grid">
+            <label class="source-chip active" id="chip-endpoint"><input type="checkbox" checked onchange="toggleChip('chip-endpoint',this)"/><span class="icon">🖥️</span>Endpoints/EDR</label>
+            <label class="source-chip active" id="chip-network"><input type="checkbox" checked onchange="toggleChip('chip-network',this)"/><span class="icon">🌐</span>Network / FW</label>
+            <label class="source-chip active" id="chip-cloud"><input type="checkbox" checked onchange="toggleChip('chip-cloud',this)"/><span class="icon">☁️</span>Cloud Audit</label>
+            <label class="source-chip" id="chip-ad"><input type="checkbox" onchange="toggleChip('chip-ad',this)"/><span class="icon">🔐</span>Active Directory</label>
+            <label class="source-chip" id="chip-proxy"><input type="checkbox" onchange="toggleChip('chip-proxy',this)"/><span class="icon">🔀</span>Proxy / Web GW</label>
+            <label class="source-chip" id="chip-app"><input type="checkbox" onchange="toggleChip('chip-app',this)"/><span class="icon">📦</span>App / API Logs</label>
+            <label class="source-chip" id="chip-dns"><input type="checkbox" onchange="toggleChip('chip-dns',this)"/><span class="icon">📡</span>DNS</label>
+            <label class="source-chip" id="chip-vuln"><input type="checkbox" onchange="toggleChip('chip-vuln',this)"/><span class="icon">🛡️</span>Vuln Scanner</label>
+          </div>
+        </div>
+
+        <div class="section-label">02 &mdash; Organisation Scale</div>
+        <div class="grid-2">
+          <div class="field"><label>Endpoints / Workstations</label><input type="number" id="endpoints" value="1000" min="1"/></div>
+          <div class="field"><label>Servers</label><input type="number" id="servers" value="200" min="0"/></div>
+          <div class="field"><label>Network Devices</label><input type="number" id="netdevices" value="80" min="0"/></div>
+          <div class="field"><label>Cloud Accounts</label><input type="number" id="cloudaccts" value="5" min="0"/></div>
+        </div>
+
+        <div class="section-label">03 &mdash; Event Volume</div>
+        <div class="field">
+          <label>Override EPS (leave 0 to auto-estimate)</label>
+          <input type="number" id="eps" value="0" min="0"/>
+          <div class="hint">Auto-estimation uses per-source EPS rates from industry benchmarks</div>
+        </div>
+        <div class="field">
+          <label>Avg Event Size (bytes)</label>
+          <div class="slider-wrap">
+            <input type="range" id="evtSize" min="200" max="2000" step="50" value="500" oninput="document.getElementById('evtSizeVal').textContent=this.value+'B'"/>
+            <span class="slider-val" id="evtSizeVal">500B</span>
+          </div>
+          <div class="hint">Elastic baseline: ~500B for ECS-normalised events</div>
+        </div>
+        <div class="field">
+          <label>Peak-to-Average Ratio</label>
+          <div class="slider-wrap">
+            <input type="range" id="peakRatio" min="1" max="5" step="0.5" value="3" oninput="document.getElementById('peakRatioVal').textContent=this.value+'×'"/>
+            <span class="slider-val" id="peakRatioVal">3×</span>
+          </div>
+        </div>
+
+        <div class="section-label">04 &mdash; Retention &amp; ILM Tiers</div>
+        <div class="grid-2">
+          <div class="field"><label>Hot Tier (days)</label><input type="number" id="hotDays" value="30" min="1" max="365"/><div class="hint">SSD · 1:30 RAM:data</div></div>
+          <div class="field"><label>Warm Tier (days)</label><input type="number" id="warmDays" value="60" min="0" max="365"/><div class="hint">HDD · 1:160 RAM:data</div></div>
+          <div class="field"><label>Cold / Frozen (days)</label><input type="number" id="coldDays" value="275" min="0"/><div class="hint">Object store · 1:1000</div></div>
+          <div class="field"><label>Annual Growth (%)</label><input type="number" id="growth" value="20" min="0" max="200"/></div>
+        </div>
+
+        <div class="section-label">05 &mdash; Cluster Configuration</div>
+        <div class="grid-2">
+          <div class="field"><label>Replica Shards</label><select id="replicas"><option value="0">0 — No replica</option><option value="1" selected>1 — Recommended</option><option value="2">2 — High availability</option></select></div>
+          <div class="field"><label>Compression Factor</label><select id="compFactor"><option value="1">1× — None</option><option value="1.2" selected>1.2× — Elastic/ECS default</option><option value="2">2× — Good text logs</option><option value="4">4× — Highly compressible</option></select></div>
+          <div class="field"><label>Hot Node RAM</label><select id="hotRam"><option value="8">8 GB</option><option value="16">16 GB</option><option value="32">32 GB</option><option value="64" selected>64 GB</option><option value="128">128 GB</option></select></div>
+          <div class="field"><label>Deployment Model</label><select id="deployModel"><option value="onprem">On-Premises</option><option value="cloud" selected>Elastic Cloud / ECK</option><option value="hybrid">Hybrid</option></select></div>
+        </div>
+
+        <button class="btn-calc" onclick="calculate()">▶ &nbsp; Run Sizing Estimate</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULTS PANEL -->
+  <div id="results">
+
+    <div class="summary-strip animate">
+      <div class="summary-cell accent"><div class="s-label">Est. EPS</div><div class="s-value" id="r-eps">—</div><div class="s-unit">events / sec</div></div>
+      <div class="summary-cell"><div class="s-label">Daily Ingest</div><div class="s-value" id="r-daily">—</div><div class="s-unit">GB / day (compressed)</div></div>
+      <div class="summary-cell warn"><div class="s-label">Avg Bandwidth</div><div class="s-value" id="r-bw">—</div><div class="s-unit">Mbps at ingest</div></div>
+      <div class="summary-cell"><div class="s-label">Retention</div><div class="s-value" id="r-retdays">—</div><div class="s-unit">total days</div></div>
+      <div class="summary-cell ok"><div class="s-label">Net Storage</div><div class="s-value" id="r-storage">—</div><div class="s-unit">TB (incl. replicas)</div></div>
+      <div class="summary-cell"><div class="s-label">Total Shards</div><div class="s-value" id="r-shards">—</div><div class="s-unit">primary + replica</div></div>
+    </div>
+
+    <div id="tierBanner" class="tier-strip small animate">
+      <div><div class="tier-name" id="tierName">—</div><div class="tier-desc" id="tierDesc">—</div></div>
+      <span class="tier-badge" id="tierBadge">—</span>
+    </div>
+
+    <div class="block-row animate">
+      <div class="block-card">
+        <div class="block-card-header"><span class="accent">EPS &amp; Bandwidth</span></div>
+        <div class="block-card-body">
+          <div class="data-row"><span class="key">Average EPS</span><span class="val hi" id="d-eps-avg">—</span></div>
+          <div class="data-row"><span class="key">Peak EPS (×ratio)</span><span class="val" id="d-eps-peak">—</span></div>
+          <div class="data-row"><span class="key">Avg ingestion bandwidth</span><span class="val" id="d-bw-avg">—</span></div>
+          <div class="data-row"><span class="key">Peak ingestion bandwidth</span><span class="val warn" id="d-bw-peak">—</span></div>
+          <div class="data-row"><span class="key">Ingest per hour</span><span class="val" id="d-hourly">—</span></div>
+          <div class="data-row"><span class="key">Raw ingest per day</span><span class="val" id="d-daily-raw">—</span></div>
+        </div>
+      </div>
+      <div class="block-card">
+        <div class="block-card-header"><span class="accent">Storage Breakdown</span></div>
+        <div class="block-card-body">
+          <div class="data-row"><span class="key">Raw daily (pre-compress)</span><span class="val" id="d-raw-daily">—</span></div>
+          <div class="data-row"><span class="key">After Elastic compression</span><span class="val hi" id="d-comp-daily">—</span></div>
+          <div class="data-row"><span class="key">Hot tier storage</span><span class="val" id="d-hot">—</span></div>
+          <div class="data-row"><span class="key">Warm tier storage</span><span class="val" id="d-warm">—</span></div>
+          <div class="data-row"><span class="key">Cold / Frozen storage</span><span class="val" id="d-cold">—</span></div>
+          <div class="data-row"><span class="key">Total (replicas + overhead)</span><span class="val warn" id="d-total-storage">—</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="block-row animate">
+      <div class="block-card">
+        <div class="block-card-header"><span class="accent">Shard Strategy</span></div>
+        <div class="block-card-body">
+          <div class="data-row"><span class="key">Target shard size</span><span class="val">40 GB (Elastic recommended)</span></div>
+          <div class="data-row"><span class="key">Primary shards</span><span class="val hi" id="d-primary-shards">—</span></div>
+          <div class="data-row"><span class="key">Replica shards</span><span class="val" id="d-replica-shards">—</span></div>
+          <div class="data-row"><span class="key">Total shards</span><span class="val warn" id="d-total-shards">—</span></div>
+          <div class="data-row"><span class="key">New shards per day</span><span class="val" id="d-daily-shards">—</span></div>
+          <div class="data-row"><span class="key">ILM policy path</span><span class="val" id="d-ilm">—</span></div>
+        </div>
+      </div>
+      <div class="block-card">
+        <div class="block-card-header"><span class="accent">Network &amp; Ingest Pipeline</span></div>
+        <div class="block-card-body">
+          <div class="data-row"><span class="key">Elastic Agents deployed</span><span class="val hi" id="d-agents">—</span></div>
+          <div class="data-row"><span class="key">Logstash / ingest workers</span><span class="val" id="d-workers">—</span></div>
+          <div class="data-row"><span class="key">Optimal bulk batch size</span><span class="val">16 K docs (Elastic benchmark)</span></div>
+          <div class="data-row"><span class="key">Optimal bulk clients</span><span class="val">32 (Elastic benchmark)</span></div>
+          <div class="data-row"><span class="key">Inter-node replication BW</span><span class="val" id="d-internode">—</span></div>
+          <div class="data-row"><span class="key">JVM heap / hot node</span><span class="val" id="d-heap">—</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="formula-box animate">
+      <div class="f-title">📐 Official Elastic Formulas Applied (source: elastic.co)</div>
+      <div id="formulaLines"></div>
+    </div>
+
+    <div class="node-table-wrap animate">
+      <div class="node-table-header"><span class="dot"></span>Recommended Cluster Topology</div>
+      <table>
+        <thead><tr><th>Role</th><th>Tier</th><th>Nodes</th><th>vCPU (total)</th><th>RAM (total)</th><th>Disk (total)</th><th>Disk Type</th></tr></thead>
+        <tbody id="nodeBody"></tbody>
+        <tfoot>
+          <tr class="tfoot-row">
+            <td colspan="2"><strong>CLUSTER TOTAL</strong></td>
+            <td id="t-nodes">—</td><td id="t-vcpu">—</td><td id="t-ram">—</td><td id="t-disk">—</td><td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <div class="notes-card animate">
+      <h3>Architect Notes &amp; Recommendations</h3>
+      <div id="notesList"></div>
+    </div>
+
+  </div>
+</div>
+
+<footer>
+  <span>Elastic SIEM Sizing · <a href="https://github.com/your-username/siem-sizing-of-elastic" target="_blank">github.com/your-username/siem-sizing-of-elastic</a></span>
+  <span>Formulas © <a href="https://elastic.co" target="_blank">Elastic N.V.</a> · MIT Licence</span>
+</footer>
+
+<script>
+function toggleChip(id, cb) {
+  document.getElementById(id).classList.toggle('active', cb.checked);
+}
+
+function estimateEPS() {
+  const endpoints  = +document.getElementById('endpoints').value  || 0;
+  const servers    = +document.getElementById('servers').value    || 0;
+  const netdevices = +document.getElementById('netdevices').value || 0;
+  const cloudaccts = +document.getElementById('cloudaccts').value || 0;
+  const chk = id => document.querySelector('#'+id+' input').checked;
+  let eps = 0;
+  if (chk('chip-endpoint')) eps += (endpoints * 2) + (servers * 8);
+  if (chk('chip-network'))  eps += netdevices * 30;
+  if (chk('chip-cloud'))    eps += cloudaccts * 500;
+  if (chk('chip-ad'))       eps += (endpoints + servers) * 0.5;
+  if (chk('chip-proxy'))    eps += endpoints * 1.5;
+  if (chk('chip-app'))      eps += servers * 10;
+  if (chk('chip-dns'))      eps += endpoints * 1;
+  if (chk('chip-vuln'))     eps += 200;
+  return Math.max(100, Math.round(eps));
+}
+
+function fmtGB(gb) {
+  if (gb >= 1000) return (gb/1000).toFixed(2)+' TB';
+  return gb.toFixed(1)+' GB';
+}
+function fmtNum(n) { return Math.round(n).toLocaleString(); }
+
+function calculate() {
+  const manualEPS  = +document.getElementById('eps').value || 0;
+  const eps        = manualEPS > 0 ? manualEPS : estimateEPS();
+  const evtSize    = +document.getElementById('evtSize').value   || 500;
+  const peakRatio  = +document.getElementById('peakRatio').value || 3;
+  const hotDays    = +document.getElementById('hotDays').value   || 30;
+  const warmDays   = +document.getElementById('warmDays').value  || 60;
+  const coldDays   = +document.getElementById('coldDays').value  || 275;
+  const growth     = +document.getElementById('growth').value    || 20;
+  const replicas   = +document.getElementById('replicas').value;
+  const compFactor = +document.getElementById('compFactor').value;
+  const hotRam     = +document.getElementById('hotRam').value;
+  const totalDays  = hotDays + warmDays + coldDays;
+  const endpoints  = +document.getElementById('endpoints').value || 0;
+  const servers    = +document.getElementById('servers').value   || 0;
+
+  // EPS & bandwidth
+  const peakEPS    = eps * peakRatio;
+  const avgBwMbps  = (eps * evtSize * 8 / 1e6).toFixed(1);
+  const peakBwMbps = (eps * evtSize * 8 * peakRatio / 1e6).toFixed(1);
+
+  // Storage — Official Elastic formula
+  // Total Data (GB) = raw_GB_day × days × (replicas+1) × compressionFactor
+  // Total Storage (GB) = Total_Data × 1.25  [0.15 watermark + 0.10 margin]
+  const rawDailyGB  = (eps * evtSize * 86400) / 1e9;
+  const compDailyGB = rawDailyGB / compFactor;
+
+  const hotData     = compDailyGB * hotDays * (replicas + 1);
+  const hotStorage  = hotData * 1.25;
+  const warmData    = compDailyGB * warmDays * (replicas + 1);
+  const warmStorage = warmData * 1.25;
+  const coldData    = compDailyGB * coldDays * (replicas + 1);
+  const coldStorage = coldData * 1.25;
+  const totalStorage = (hotStorage + warmStorage + coldStorage) * (1 + growth/100);
+
+  // Node sizing — Official Elastic formula
+  // Total Data Nodes = ROUNDUP(Total_Storage / RAM_per_node / ratio) [+1 failover]
+  const HOT_RATIO  = 30;
+  const WARM_RATIO = 160;
+  const COLD_RATIO = 1000;
+  const warmRam    = Math.max(32, Math.floor(hotRam / 2));
+
+  const hotNodes   = Math.max(3, Math.ceil(hotStorage  / hotRam / HOT_RATIO)  + (hotStorage  > 6000 ? 1 : 0));
+  const warmNodes  = warmDays > 0 ? Math.max(2, Math.ceil(warmStorage / warmRam / WARM_RATIO) + 1) : 0;
+  const coldNodes  = coldDays > 0 ? Math.max(2, Math.ceil(coldStorage / 32   / COLD_RATIO)   + 1) : 0;
+  const coordNodes = Math.max(2, Math.ceil(eps / 200000) + 1);
+  const masterNodes= 3;
+  const kibanaNodes= eps > 50000 ? 2 : 1;
+
+  // Shard sizing — Official Elastic: target 40 GB per shard
+  const TARGET_SHARD_GB  = 40;
+  const primaryDataGB    = compDailyGB * totalDays;
+  const primaryShards    = Math.max(1, Math.ceil(primaryDataGB / TARGET_SHARD_GB));
+  const totalShards      = primaryShards * (replicas + 1);
+  const dailyShards      = Math.max(1, Math.ceil(compDailyGB / TARGET_SHARD_GB));
+
+  // Per-node disk
+  const hotDiskPerNode  = hotNodes  > 0 ? Math.ceil(hotStorage  / hotNodes  / 50)  * 50  : 0;
+  const warmDiskPerNode = warmNodes > 0 ? Math.ceil(warmStorage / warmNodes / 100) * 100 : 0;
+  const coldDiskPerNode = coldNodes > 0 ? Math.ceil(coldStorage / coldNodes / 200) * 200 : 0;
+
+  // JVM heap = min(50% RAM, 31 GB) — Elastic hard limit
+  const heapPerNode     = Math.min(Math.floor(hotRam * 0.5), 31);
+
+  const totalAgents     = endpoints + servers;
+  const logstashWorkers = Math.max(2, Math.ceil(eps / 20000));
+  const internodeMbps   = (parseFloat(avgBwMbps) * replicas * 1.1).toFixed(1);
+
+  // Tier
+  let tier = 'small';
+  if (eps > 50000 || compDailyGB > 200) tier = 'large';
+  else if (eps > 5000 || compDailyGB > 20) tier = 'medium';
+
+  // ── Populate KPIs ──
+  document.getElementById('r-eps').textContent     = fmtNum(eps);
+  document.getElementById('r-daily').textContent   = compDailyGB.toFixed(1);
+  document.getElementById('r-bw').textContent      = avgBwMbps;
+  document.getElementById('r-retdays').textContent = fmtNum(totalDays);
+  document.getElementById('r-storage').textContent = (totalStorage/1000).toFixed(2);
+  document.getElementById('r-shards').textContent  = fmtNum(totalShards);
+
+  // Tier banner
+  const tierBanner = document.getElementById('tierBanner');
+  tierBanner.className = `tier-strip ${tier} animate`;
+  const tiers = {
+    small:  { name:'Small Deployment',   desc:'Moderate EPS. Standard 3-node distributed cluster is sufficient.', badge:'SMALL' },
+    medium: { name:'Medium Deployment',  desc:'ILM hot-warm recommended. Consider dedicated coordinator nodes.', badge:'MEDIUM' },
+    large:  { name:'Enterprise Scale',   desc:'Full hot-warm-cold ILM essential. Consider CCR for DR.', badge:'ENTERPRISE' },
+  };
+  document.getElementById('tierName').textContent  = tiers[tier].name;
+  document.getElementById('tierDesc').textContent  = tiers[tier].desc;
+  document.getElementById('tierBadge').textContent = tiers[tier].badge;
+
+  // Detail cards
+  document.getElementById('d-eps-avg').textContent    = fmtNum(eps)+' eps';
+  document.getElementById('d-eps-peak').textContent   = fmtNum(peakEPS)+' eps';
+  document.getElementById('d-bw-avg').textContent     = avgBwMbps+' Mbps';
+  document.getElementById('d-bw-peak').textContent    = peakBwMbps+' Mbps';
+  document.getElementById('d-hourly').textContent     = fmtGB(compDailyGB/24)+' / hr';
+  document.getElementById('d-daily-raw').textContent  = fmtGB(rawDailyGB);
+  document.getElementById('d-raw-daily').textContent  = fmtGB(rawDailyGB);
+  document.getElementById('d-comp-daily').textContent = fmtGB(compDailyGB);
+  document.getElementById('d-hot').textContent        = fmtGB(hotStorage);
+  document.getElementById('d-warm').textContent       = warmDays > 0 ? fmtGB(warmStorage) : 'Not configured';
+  document.getElementById('d-cold').textContent       = coldDays > 0 ? fmtGB(coldStorage)  : 'Not configured';
+  document.getElementById('d-total-storage').textContent = fmtGB(totalStorage);
+  document.getElementById('d-primary-shards').textContent = fmtNum(primaryShards);
+  document.getElementById('d-replica-shards').textContent = fmtNum(primaryShards * replicas);
+  document.getElementById('d-total-shards').textContent   = fmtNum(totalShards);
+  document.getElementById('d-daily-shards').textContent   = dailyShards+' / day';
+  const ilmStr = [hotDays?`Hot ${hotDays}d`:'', warmDays?`Warm ${warmDays}d`:'', coldDays?`Cold ${coldDays}d`:''].filter(Boolean).join(' → ');
+  document.getElementById('d-ilm').textContent    = ilmStr;
+  document.getElementById('d-agents').textContent = fmtNum(totalAgents)+' agents';
+  document.getElementById('d-workers').textContent= logstashWorkers+' instances';
+  document.getElementById('d-internode').textContent = internodeMbps+' Mbps';
+  document.getElementById('d-heap').textContent   = heapPerNode+' GB / node';
+
+  // Formulas box
+  document.getElementById('formulaLines').innerHTML = `
+    <div class="f-line">Total Data (GB) = <span>raw_GB/day × retention_days × (replicas+1) × compression_factor</span></div>
+    <div class="f-line">Total Storage   = <span>Total_Data × (1 + 0.15 watermark + 0.10 margin)</span>  =  × 1.25</div>
+    <div class="f-line">Hot Data Nodes  = <span>⌈Hot_Storage ÷ RAM_per_node ÷ 30⌉ + failover</span>  [1:30 RAM:data ratio]</div>
+    <div class="f-line">Warm Data Nodes = <span>⌈Warm_Storage ÷ RAM_per_node ÷ 160⌉ + 1</span>  [1:160 RAM:data ratio]</div>
+    <div class="f-line">Cold Data Nodes = <span>⌈Cold_Storage ÷ 32 GB ÷ 1000⌉ + 1</span>  [1:1000 RAM:data ratio]</div>
+    <div class="f-line">Primary Shards  = <span>⌈Total_Primary_GB ÷ 40 GB⌉</span>  [Elastic target: 40 GB/shard max ~50 GB]</div>
+    <div class="f-line">JVM Heap        = <span>min(50% × node_RAM, 31 GB)</span>  →  ${heapPerNode} GB / hot node</div>
+    <div class="f-line" style="margin-top:10px;border-top:1px solid #30363d;padding-top:10px;color:#8b949e;">
+      This run:  compDailyGB=${compDailyGB.toFixed(2)} GB/d · hotStorage=${hotStorage.toFixed(0)} GB · 
+      hotNodes=⌈${hotStorage.toFixed(0)}÷${hotRam}÷${HOT_RATIO}⌉+failover=${hotNodes} · 
+      shards=⌈${primaryDataGB.toFixed(0)}÷40⌉×${replicas+1}=${totalShards}
+    </div>
+  `;
+
+  // Node table
+  const rows = [
+    { role:'Master / Voting Only', tier:'master', count:masterNodes, vcpu:4, ram:8, disk:50, diskType:'SSD' },
+    { role:'Hot Data (Ingest)', tier:'hot', count:hotNodes, vcpu:hotRam>=64?16:8, ram:hotRam, disk:hotDiskPerNode, diskType:'NVMe SSD' },
+    ...(warmDays>0 ? [{ role:'Warm Data', tier:'warm', count:warmNodes, vcpu:8, ram:warmRam, disk:warmDiskPerNode, diskType:'SSD / HDD' }] : []),
+    ...(coldDays>0 ? [{ role:'Cold / Frozen', tier:'cold', count:coldNodes, vcpu:4, ram:32, disk:coldDiskPerNode, diskType:'HDD / Object' }] : []),
+    { role:'Coordinating Only', tier:'coord', count:coordNodes, vcpu:16, ram:32, disk:50, diskType:'SSD' },
+    { role:'Kibana / Fleet Server', tier:'kibana', count:kibanaNodes, vcpu:4, ram:8, disk:50, diskType:'SSD' },
+  ];
+  const badgeMap = { hot:'badge-hot', warm:'badge-warm', cold:'badge-cold', coord:'badge-coord', master:'badge-master', kibana:'badge-kibana' };
+  let tNodes=0, tVcpu=0, tRam=0, tDisk=0;
+  document.getElementById('nodeBody').innerHTML = rows.map(r => {
+    tNodes += r.count; tVcpu += r.count*r.vcpu; tRam += r.count*r.ram; tDisk += r.count*r.disk;
+    return `<tr>
+      <td>${r.role}</td>
+      <td><span class="badge ${badgeMap[r.tier]}">${r.tier.toUpperCase()}</span></td>
+      <td>${r.count}</td>
+      <td>${r.count*r.vcpu} (${r.vcpu}/node)</td>
+      <td>${r.count*r.ram} GB (${r.ram}/node)</td>
+      <td>${fmtGB(r.count*r.disk)} (${r.disk} GB/node)</td>
+      <td>${r.diskType}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('t-nodes').textContent = tNodes;
+  document.getElementById('t-vcpu').textContent  = tVcpu+' cores';
+  document.getElementById('t-ram').textContent   = tRam+' GB';
+  document.getElementById('t-disk').textContent  = fmtGB(tDisk);
+
+  // Notes
+  const notes = [
+    { i:'📐', t:`<strong>Formulas</strong> sourced from the official <a href="https://www.elastic.co/blog/benchmarking-and-sizing-your-elasticsearch-cluster-for-logs-and-metrics" target="_blank" style="color:var(--elastic-d)">Elastic Benchmarking & Sizing Blog</a>. Always validate with <strong>Rally</strong> benchmark against your real dataset before committing to production hardware.` },
+    { i:'💾', t:`<strong>Storage overhead ×1.25</strong> applied per Elastic guidance: 15% disk watermark threshold + 10% margin for segment merges, translog, and field data caching.` },
+    { i:'🔀', t:`<strong>Shard target: 40 GB</strong>. Elastic recommends 10–50 GB per shard. Oversharding degrades search performance and inflates heap. Use ILM rollover to keep shards bounded.` },
+    { i:'🧠', t:`<strong>JVM Heap</strong> must be ≤ 31 GB per node to keep compressed ordinary object pointers (oops) enabled. Remaining 50% RAM is used by OS as file system cache — critical for search performance.` },
+    { i:'🏗️', t:`<strong>RAID not required</strong>: Elasticsearch replicates data at the shard level. Using RAID 1/5/10 is unnecessary overhead and reduces effective I/O throughput for Elasticsearch workloads.` },
+    { i:'⚡', t:`<strong>ILM Policy</strong>: Hot tier uses 1:30 RAM-to-data ratio on NVMe SSDs. Warm uses 1:160 on standard SSDs/HDD. Cold/Frozen uses 1:1000 — ideal for searchable snapshots on object storage (S3/GCS/Azure Blob).` },
+    { i:'📡', t:`<strong>Bandwidth</strong>: Plan for ${avgBwMbps} Mbps average (${peakBwMbps} Mbps peak) at the ingest boundary. Inter-node replication requires an additional ~${internodeMbps} Mbps. Use 10 GbE+ for cluster interconnect.` },
+    { i:'🔢', t:`<strong>Elastic Agent</strong>: Deploy ${fmtNum(totalAgents)} agents. Each agent ships logs, metrics and security events via Fleet. Use ${logstashWorkers} Logstash or ingest pipeline instances for buffering at ${fmtNum(eps)} EPS.` },
+    eps > 100000
+      ? { i:'🌐', t:`<strong>High EPS (${fmtNum(eps)} EPS)</strong>: Consider Elastic Cloud on Kubernetes (ECK) with autoscaling enabled, or Elastic Cloud Hosted (ESS) for managed scaling without operational cluster overhead.` }
+      : { i:'🔒', t:`<strong>Replicas = ${replicas}</strong>: Elastic recommends at least 1 replica for fault tolerance in production. Replicas also serve read requests, improving search throughput under concurrent analyst load.` },
+    { i:'📊', t:`<strong>Coordinator nodes</strong> handle search aggregation and query routing without holding data — reduces hot node CPU pressure. Size at 16 vCPU / 32 GB RAM each. Scale 1 per 200K EPS.` },
+  ];
+  document.getElementById('notesList').innerHTML = notes.map(n =>
+    `<div class="note-item"><span class="n-icon">${n.i}</span><span>${n.t}</span></div>`
+  ).join('');
+
+  const results = document.getElementById('results');
+  results.style.display = 'block';
+  setTimeout(() => results.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+}
+</script>
+</body>
+</html>
